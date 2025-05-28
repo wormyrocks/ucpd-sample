@@ -30,7 +30,6 @@ extern "C" {
 #include "stm32g4xx_hal.h"
 
 #include "stm32g4xx_ll_adc.h"
-#include "stm32g4xx_ll_lpuart.h"
 #include "stm32g4xx_ll_rcc.h"
 #include "stm32g4xx_ll_bus.h"
 #include "stm32g4xx_ll_crs.h"
@@ -74,6 +73,10 @@ void Error_Handler(void);
 #define VDDA_APPLI 3300
 #define VSENSE_Pin LL_GPIO_PIN_0
 #define VSENSE_GPIO_Port GPIOF
+#define LED1_Pin LL_GPIO_PIN_5
+#define LED1_GPIO_Port GPIOA
+#define LED2_Pin LL_GPIO_PIN_0
+#define LED2_GPIO_Port GPIOB
 
 /* USER CODE BEGIN Private defines */
 

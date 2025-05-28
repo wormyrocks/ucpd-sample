@@ -29,6 +29,7 @@ target_sources(stm32cubemx INTERFACE
     ../../Src/app_freertos.c
     ../../Src/stm32g4xx_it.c
     ../../Src/stm32g4xx_hal_msp.c
+    ../../Src/stm32g4xx_hal_timebase_tim.c
     /home/evan/STM32Cube/Repository/STM32Cube_FW_G4_V1.6.0/Drivers/STM32G4xx_HAL_Driver/Src/stm32g4xx_ll_utils.c
     /home/evan/STM32Cube/Repository/STM32Cube_FW_G4_V1.6.0/Drivers/STM32G4xx_HAL_Driver/Src/stm32g4xx_ll_exti.c
     /home/evan/STM32Cube/Repository/STM32Cube_FW_G4_V1.6.0/Drivers/STM32G4xx_HAL_Driver/Src/stm32g4xx_ll_gpio.c
@@ -47,8 +48,8 @@ target_sources(stm32cubemx INTERFACE
     /home/evan/STM32Cube/Repository/STM32Cube_FW_G4_V1.6.0/Drivers/STM32G4xx_HAL_Driver/Src/stm32g4xx_hal_pwr.c
     /home/evan/STM32Cube/Repository/STM32Cube_FW_G4_V1.6.0/Drivers/STM32G4xx_HAL_Driver/Src/stm32g4xx_hal_pwr_ex.c
     /home/evan/STM32Cube/Repository/STM32Cube_FW_G4_V1.6.0/Drivers/STM32G4xx_HAL_Driver/Src/stm32g4xx_hal_cortex.c
-    /home/evan/STM32Cube/Repository/STM32Cube_FW_G4_V1.6.0/Drivers/STM32G4xx_HAL_Driver/Src/stm32g4xx_ll_lpuart.c
-    /home/evan/STM32Cube/Repository/STM32Cube_FW_G4_V1.6.0/Drivers/STM32G4xx_HAL_Driver/Src/stm32g4xx_ll_rcc.c
+    /home/evan/STM32Cube/Repository/STM32Cube_FW_G4_V1.6.0/Drivers/STM32G4xx_HAL_Driver/Src/stm32g4xx_hal_uart.c
+    /home/evan/STM32Cube/Repository/STM32Cube_FW_G4_V1.6.0/Drivers/STM32G4xx_HAL_Driver/Src/stm32g4xx_hal_uart_ex.c
     /home/evan/STM32Cube/Repository/STM32Cube_FW_G4_V1.6.0/Drivers/STM32G4xx_HAL_Driver/Src/stm32g4xx_hal_tim.c
     /home/evan/STM32Cube/Repository/STM32Cube_FW_G4_V1.6.0/Drivers/STM32G4xx_HAL_Driver/Src/stm32g4xx_hal_tim_ex.c
     /home/evan/STM32Cube/Repository/STM32Cube_FW_G4_V1.6.0/Drivers/STM32G4xx_HAL_Driver/Src/stm32g4xx_ll_ucpd.c

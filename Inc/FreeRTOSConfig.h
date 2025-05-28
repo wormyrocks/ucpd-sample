@@ -51,7 +51,6 @@
 #if defined(__ICCARM__) || defined(__CC_ARM) || defined(__GNUC__)
   #include <stdint.h>
   extern uint32_t SystemCoreClock;
-  void xPortSysTickHandler(void);
 #endif
 #ifndef CMSIS_device_header
 #define CMSIS_device_header "stm32g4xx.h"
@@ -140,7 +139,7 @@ function. */
 routine that makes calls to interrupt safe FreeRTOS API functions.  DO NOT CALL
 INTERRUPT SAFE FREERTOS API FUNCTIONS FROM ANY INTERRUPT THAT HAS A HIGHER
 PRIORITY THAN THIS! (higher priorities are lower numeric values. */
-#define configLIBRARY_MAX_SYSCALL_INTERRUPT_PRIORITY 5
+#define configLIBRARY_MAX_SYSCALL_INTERRUPT_PRIORITY 3
 
 /* Interrupt priorities used by the kernel port layer itself.  These are generic
 to all Cortex-M ports, and do not rely on any particular library functions. */
@@ -162,7 +161,7 @@ standard names. */
 
 /* IMPORTANT: After 10.3.1 update, Systick_Handler comes from NVIC (if SYS timebase = systick), otherwise from cmsis_os2.c */
 
-#define USE_CUSTOM_SYSTICK_HANDLER_IMPLEMENTATION 1
+#define USE_CUSTOM_SYSTICK_HANDLER_IMPLEMENTATION 0
 
 /* USER CODE BEGIN Defines */
 /* Section where parameter definitions can be added (for instance, to override default ones in FreeRTOS.h) */

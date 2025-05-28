@@ -45,6 +45,8 @@
 
 /* Private variables ---------------------------------------------------------*/
 
+UART_HandleTypeDef hlpuart1;
+
 /* Definitions for defaultTask */
 osThreadId_t defaultTaskHandle;
 const osThreadAttr_t defaultTask_attributes = {
@@ -72,11 +74,7 @@ void StartDefaultTask(void *argument);
 /* USER CODE BEGIN 0 */
 PUTCHAR_PROTOTYPE
 {
-  while (!LL_LPUART_IsActiveFlag_TXE(LPUART1))
-    ;
-  LL_LPUART_TransmitData8(LPUART1, ch);
-  while (!LL_LPUART_IsActiveFlag_TC(LPUART1))
-    ;
+  HAL_UART_Transmit(&hlpuart1, (uint8_t *)&ch, 1, 0xffff);
   return ch;
 }
 
@@ -90,9 +88,10 @@ bool tuc_pd_data_received_cb(uint8_t rhport, pd_header_t const *header, uint8_t 
 {
   switch (header->msg_type)
   {
+
   case PD_DATA_SOURCE_CAP:
   {
-    printf("PD Source Capabilities\r\n");
+    TU_LOG1("PD Source Capabilities\r\n");
     // Examine source capability and select a suitable PDO (starting from 1 with safe5v)
     uint8_t selected_pos = 1;
 
@@ -105,10 +104,11 @@ bool tuc_pd_data_received_cb(uint8_t rhport, pd_header_t const *header, uint8_t 
       {
       case PD_PDO_TYPE_FIXED:
       {
+
         pd_pdo_fixed_t const *fixed = (pd_pdo_fixed_t const *)&pdo;
         uint32_t const voltage_mv = fixed->voltage_50mv * 50;
         uint32_t const current_ma = fixed->current_max_10ma * 10;
-        printf("[Fixed] %" PRIu32 " mV %" PRIu32 " mA\r\n", voltage_mv, current_ma);
+        TU_LOG1("[Fixed] %" PRIu32 " mV %" PRIu32 " mA\r\n", voltage_mv, current_ma);
 
         if (voltage_mv <= VOLTAGE_MAX_MV && current_ma >= CURRENT_MAX_MA)
         {
@@ -135,8 +135,8 @@ bool tuc_pd_data_received_cb(uint8_t rhport, pd_header_t const *header, uint8_t 
     //------------- Response with selected PDO -------------//
     // Be careful and make sure your board can withstand the selected PDO
     // voltage other than safe5v e.g 12v or 20v
-
-    printf("Selected PDO %u, voltage %d current %d\r\n", selected_pos, my_voltage, my_current);
+    LL_GPIO_ResetOutputPin(LED1_GPIO_Port, LL_GPIO_PIN_5);
+    TU_LOG1("Selected PDO %u, voltage %d current %d\r\n", selected_pos, my_voltage, my_current);
     // https://github.com/wagiminator/CH32X035-USB-PD-Tester/blob/main/software/pd_tester/src/usbpd_sink.c
     //  Send request with selected PDO position as response to Source Cap
     pd_rdo_fixed_variable_t rdo = {
@@ -145,9 +145,9 @@ bool tuc_pd_data_received_cb(uint8_t rhport, pd_header_t const *header, uint8_t 
         .reserved = 0,
         .epr_mode_capable = 0,
         .unchunked_ext_msg_support = 0,
-        .no_usb_suspend = 1,
-        .usb_comm_capable = 1,
-        .capability_mismatch = 0,
+        .no_usb_suspend = 0,
+        .usb_comm_capable = 0,
+        .capability_mismatch = 1,
         .give_back_flag = 0, // exteremum is max
         .object_position = selected_pos,
     };
@@ -155,10 +155,16 @@ bool tuc_pd_data_received_cb(uint8_t rhport, pd_header_t const *header, uint8_t 
 
     break;
   }
-
-  default:
+  case PD_DATA_VENDOR_DEFINED:
+  {
+    TU_LOG1("got (vendor defined)");
     break;
   }
+  default:
+    TU_LOG1("got PD data request no %d", header->msg_type);
+    break;
+  }
+  TU_LOG1("here!!!");
 
   return true;
 }
@@ -169,21 +175,23 @@ bool tuc_pd_control_received_cb(uint8_t rhport, pd_header_t const *header)
   switch (header->msg_type)
   {
   case PD_CTRL_ACCEPT:
-    printf("PD Request Accepted\r\n");
+    TU_LOG1("PD Request Accepted\r\n");
     // preparing for power transition
     break;
 
   case PD_CTRL_REJECT:
-    printf("PD Request Rejected\r\n");
+    TU_LOG1("PD Request Rejected\r\n");
     // try to negotiate further power
     break;
 
   case PD_CTRL_PS_READY:
-    printf("PD Power Ready\r\n");
+    TU_LOG1("PD Power Ready\r\n");
     // Source is ready to supply power
     break;
 
   default:
+    TU_LOG1("CTRL REQ\r\n");
+
     break;
   }
 
@@ -207,6 +215,7 @@ int main(void)
 
   /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
   HAL_Init();
+  SEGGER_RTT_printf(0, "RTT Hello\n");
 
   /* USER CODE BEGIN Init */
 
@@ -227,15 +236,18 @@ int main(void)
   // SysTick->CTRL &= ~1U;
   // MX_DMA_Init();
   // MX_UCPD1_Init();
-  NVIC_SetPriority(UCPD1_IRQn, NVIC_EncodePriority(NVIC_GetPriorityGrouping(), 5, 5));
+  NVIC_SetPriority(UCPD1_IRQn, NVIC_EncodePriority(NVIC_GetPriorityGrouping(), 5, 0));
   __HAL_RCC_PWR_CLK_ENABLE();
   __HAL_RCC_CRC_CLK_ENABLE();
   __HAL_RCC_UCPD1_CLK_ENABLE();
   __HAL_RCC_DMAMUX1_CLK_ENABLE();
   __HAL_RCC_DMA1_CLK_ENABLE();
+  // HAL_Delay(5000);
+  SEGGER_RTT_printf(0, "Delay finished\n");
+  LL_GPIO_ResetOutputPin(LED2_GPIO_Port, LED2_Pin);
   if (!tuc_init(0, TUSB_TYPEC_PORT_SNK))
   {
-    printf("Failed to init tinyUSB\n");
+    TU_LOG1("Failed to init tinyUSB\n");
   }
   TU_LOG1("HEllo world\n");
 
@@ -420,60 +432,34 @@ static void MX_LPUART1_UART_Init(void)
 
   /* USER CODE END LPUART1_Init 0 */
 
-  LL_LPUART_InitTypeDef LPUART_InitStruct = {0};
-
-  LL_GPIO_InitTypeDef GPIO_InitStruct = {0};
-
-  LL_RCC_SetLPUARTClockSource(LL_RCC_LPUART1_CLKSOURCE_PCLK1);
-
-  /* Peripheral clock enable */
-  LL_APB1_GRP2_EnableClock(LL_APB1_GRP2_PERIPH_LPUART1);
-
-  LL_AHB2_GRP1_EnableClock(LL_AHB2_GRP1_PERIPH_GPIOA);
-  /**LPUART1 GPIO Configuration
-  PA2   ------> LPUART1_TX
-  PA3   ------> LPUART1_RX
-  */
-  GPIO_InitStruct.Pin = LL_GPIO_PIN_2;
-  GPIO_InitStruct.Mode = LL_GPIO_MODE_ALTERNATE;
-  GPIO_InitStruct.Speed = LL_GPIO_SPEED_FREQ_LOW;
-  GPIO_InitStruct.OutputType = LL_GPIO_OUTPUT_PUSHPULL;
-  GPIO_InitStruct.Pull = LL_GPIO_PULL_NO;
-  GPIO_InitStruct.Alternate = LL_GPIO_AF_12;
-  LL_GPIO_Init(GPIOA, &GPIO_InitStruct);
-
-  GPIO_InitStruct.Pin = LL_GPIO_PIN_3;
-  GPIO_InitStruct.Mode = LL_GPIO_MODE_ALTERNATE;
-  GPIO_InitStruct.Speed = LL_GPIO_SPEED_FREQ_LOW;
-  GPIO_InitStruct.OutputType = LL_GPIO_OUTPUT_PUSHPULL;
-  GPIO_InitStruct.Pull = LL_GPIO_PULL_NO;
-  GPIO_InitStruct.Alternate = LL_GPIO_AF_12;
-  LL_GPIO_Init(GPIOA, &GPIO_InitStruct);
-
   /* USER CODE BEGIN LPUART1_Init 1 */
 
   /* USER CODE END LPUART1_Init 1 */
-  LPUART_InitStruct.PrescalerValue = LL_LPUART_PRESCALER_DIV1;
-  LPUART_InitStruct.BaudRate = 115200;
-  LPUART_InitStruct.DataWidth = LL_LPUART_DATAWIDTH_8B;
-  LPUART_InitStruct.StopBits = LL_LPUART_STOPBITS_1;
-  LPUART_InitStruct.Parity = LL_LPUART_PARITY_NONE;
-  LPUART_InitStruct.TransferDirection = LL_LPUART_DIRECTION_TX_RX;
-  LPUART_InitStruct.HardwareFlowControl = LL_LPUART_HWCONTROL_NONE;
-  LL_LPUART_Init(LPUART1, &LPUART_InitStruct);
-  LL_LPUART_SetTXFIFOThreshold(LPUART1, LL_LPUART_FIFOTHRESHOLD_1_8);
-  LL_LPUART_SetRXFIFOThreshold(LPUART1, LL_LPUART_FIFOTHRESHOLD_1_8);
-  LL_LPUART_DisableFIFO(LPUART1);
-
-  /* USER CODE BEGIN WKUPType LPUART1 */
-
-  /* USER CODE END WKUPType LPUART1 */
-
-  LL_LPUART_Enable(LPUART1);
-
-  /* Polling LPUART1 initialisation */
-  while ((!(LL_LPUART_IsActiveFlag_TEACK(LPUART1))) || (!(LL_LPUART_IsActiveFlag_REACK(LPUART1))))
+  hlpuart1.Instance = LPUART1;
+  hlpuart1.Init.BaudRate = 115200;
+  hlpuart1.Init.WordLength = UART_WORDLENGTH_8B;
+  hlpuart1.Init.StopBits = UART_STOPBITS_1;
+  hlpuart1.Init.Parity = UART_PARITY_NONE;
+  hlpuart1.Init.Mode = UART_MODE_TX_RX;
+  hlpuart1.Init.HwFlowCtl = UART_HWCONTROL_NONE;
+  hlpuart1.Init.OneBitSampling = UART_ONE_BIT_SAMPLE_DISABLE;
+  hlpuart1.Init.ClockPrescaler = UART_PRESCALER_DIV1;
+  hlpuart1.AdvancedInit.AdvFeatureInit = UART_ADVFEATURE_NO_INIT;
+  if (HAL_UART_Init(&hlpuart1) != HAL_OK)
   {
+    Error_Handler();
+  }
+  if (HAL_UARTEx_SetTxFifoThreshold(&hlpuart1, UART_TXFIFO_THRESHOLD_1_8) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_UARTEx_SetRxFifoThreshold(&hlpuart1, UART_RXFIFO_THRESHOLD_1_8) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_UARTEx_EnableFifoMode(&hlpuart1) != HAL_OK)
+  {
+    Error_Handler();
   }
   /* USER CODE BEGIN LPUART1_Init 2 */
   /* USER CODE END LPUART1_Init 2 */
@@ -529,6 +515,7 @@ static void MX_UCPD1_Init(void)
   LL_DMA_SetPeriphSize(DMA1, LL_DMA_CHANNEL_1, LL_DMA_PDATAALIGN_BYTE);
 
   LL_DMA_SetMemorySize(DMA1, LL_DMA_CHANNEL_1, LL_DMA_MDATAALIGN_BYTE);
+
   /* UCPD1_TX Init */
   LL_DMA_SetPeriphRequest(DMA1, LL_DMA_CHANNEL_2, LL_DMAMUX_REQ_UCPD1_TX);
 
@@ -547,8 +534,7 @@ static void MX_UCPD1_Init(void)
   LL_DMA_SetMemorySize(DMA1, LL_DMA_CHANNEL_2, LL_DMA_MDATAALIGN_BYTE);
 
   /* UCPD1 interrupt Init */
-  NVIC_SetPriority(UCPD1_IRQn, NVIC_EncodePriority(NVIC_GetPriorityGrouping(), 5, 0));
-  NVIC_EnableIRQ(UCPD1_IRQn);
+  NVIC_SetPriority(UCPD1_IRQn, NVIC_EncodePriority(NVIC_GetPriorityGrouping(), 5, 5));
 
   /* USER CODE BEGIN UCPD1_Init 1 */
 
@@ -570,10 +556,10 @@ static void MX_DMA_Init(void)
 
   /* DMA interrupt init */
   /* DMA1_Channel1_IRQn interrupt configuration */
-  NVIC_SetPriority(DMA1_Channel1_IRQn, NVIC_EncodePriority(NVIC_GetPriorityGrouping(), 0, 0));
+  NVIC_SetPriority(DMA1_Channel1_IRQn, NVIC_EncodePriority(NVIC_GetPriorityGrouping(), 5, 5));
   NVIC_EnableIRQ(DMA1_Channel1_IRQn);
   /* DMA1_Channel2_IRQn interrupt configuration */
-  NVIC_SetPriority(DMA1_Channel2_IRQn, NVIC_EncodePriority(NVIC_GetPriorityGrouping(), 0, 0));
+  NVIC_SetPriority(DMA1_Channel2_IRQn, NVIC_EncodePriority(NVIC_GetPriorityGrouping(), 5, 5));
   NVIC_EnableIRQ(DMA1_Channel2_IRQn);
 }
 
@@ -584,6 +570,7 @@ static void MX_DMA_Init(void)
  */
 static void MX_GPIO_Init(void)
 {
+  LL_GPIO_InitTypeDef GPIO_InitStruct = {0};
   /* USER CODE BEGIN MX_GPIO_Init_1 */
   /* USER CODE END MX_GPIO_Init_1 */
 
@@ -591,6 +578,28 @@ static void MX_GPIO_Init(void)
   LL_AHB2_GRP1_EnableClock(LL_AHB2_GRP1_PERIPH_GPIOF);
   LL_AHB2_GRP1_EnableClock(LL_AHB2_GRP1_PERIPH_GPIOA);
   LL_AHB2_GRP1_EnableClock(LL_AHB2_GRP1_PERIPH_GPIOB);
+
+  /**/
+  LL_GPIO_SetOutputPin(LED1_GPIO_Port, LED1_Pin);
+
+  /**/
+  LL_GPIO_SetOutputPin(LED2_GPIO_Port, LED2_Pin);
+
+  /**/
+  GPIO_InitStruct.Pin = LED1_Pin;
+  GPIO_InitStruct.Mode = LL_GPIO_MODE_OUTPUT;
+  GPIO_InitStruct.Speed = LL_GPIO_SPEED_FREQ_LOW;
+  GPIO_InitStruct.OutputType = LL_GPIO_OUTPUT_PUSHPULL;
+  GPIO_InitStruct.Pull = LL_GPIO_PULL_NO;
+  LL_GPIO_Init(LED1_GPIO_Port, &GPIO_InitStruct);
+
+  /**/
+  GPIO_InitStruct.Pin = LED2_Pin;
+  GPIO_InitStruct.Mode = LL_GPIO_MODE_OUTPUT;
+  GPIO_InitStruct.Speed = LL_GPIO_SPEED_FREQ_LOW;
+  GPIO_InitStruct.OutputType = LL_GPIO_OUTPUT_PUSHPULL;
+  GPIO_InitStruct.Pull = LL_GPIO_PULL_NO;
+  LL_GPIO_Init(LED2_GPIO_Port, &GPIO_InitStruct);
 
   /* USER CODE BEGIN MX_GPIO_Init_2 */
   /* USER CODE END MX_GPIO_Init_2 */
@@ -614,9 +623,31 @@ void StartDefaultTask(void *argument)
   for (;;)
   {
     tuc_task();
-    osDelay(5);
+    osDelay(10);
   }
   /* USER CODE END 5 */
+}
+
+/**
+ * @brief  Period elapsed callback in non blocking mode
+ * @note   This function is called  when TIM1 interrupt took place, inside
+ * HAL_TIM_IRQHandler(). It makes a direct call to HAL_IncTick() to increment
+ * a global variable "uwTick" used as application time base.
+ * @param  htim : TIM handle
+ * @retval None
+ */
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+{
+  /* USER CODE BEGIN Callback 0 */
+
+  /* USER CODE END Callback 0 */
+  if (htim->Instance == TIM1)
+  {
+    HAL_IncTick();
+  }
+  /* USER CODE BEGIN Callback 1 */
+
+  /* USER CODE END Callback 1 */
 }
 
 /**
@@ -646,7 +677,7 @@ void assert_failed(uint8_t *file, uint32_t line)
 {
   /* USER CODE BEGIN 6 */
   /* User can add his own implementation to report the file name and line number,
-     ex: printf("Wrong parameters value: file %s on line %d\r\n", file, line) */
+     ex: TU_LOG1("Wrong parameters value: file %s on line %d\r\n", file, line) */
   /* USER CODE END 6 */
 }
 #endif /* USE_FULL_ASSERT */
